@@ -9,6 +9,7 @@ module module_navier_stokes_cases
 
     use module_navier_stokes_params
     use module_funnel
+    use module_plenum
     use module_ns_penalization
     use module_simple_geometry
     use module_shock
@@ -44,8 +45,13 @@ contains
     call read_params_geometry(params_ns,FILE)
   case('shock_tube')
     call read_params_shock_tube(params_ns,FILE)
+
+  case('plenum')
+    call read_params_plenum(params_ns,FILE)
+
   case('pipe_flow')
     call read_params_pipe_flow(params_ns,FILE)
+
   case('no')
 
   case default
@@ -77,6 +83,8 @@ end subroutine read_case_parameters
 
       set_inicond=.true.
       select case(params%case)
+      case('plenum')
+        call set_inicond_plenum(x0,dx,Bs,g,phi)
       case('funnel')
         call set_inicond_funnel(x0, dx, Bs, g, phi )
         return
@@ -114,8 +122,13 @@ end subroutine read_case_parameters
        call geometry_penalization2D(Bs, g, x0, dx, phi(:,:,rhoF), mask, phi_ref)
      case('funnel')
        call funnel_penalization2D(Bs, g, x0, dx, phi, mask, phi_ref)
+
+     case('plenum')
+       call plenum_penalization2D(Bs, g, x0, dx, phi, mask, phi_ref)
+
      case('pipe_flow')
        call pipe_flow_penalization2D(Bs, g, x0, dx, mask, phi_ref)
+
      case('no')
        return
      case default
@@ -183,6 +196,8 @@ end subroutine read_case_parameters
         call draw_geometry(x0, dx, Bs, g, mask)
       case('funnel')
         call draw_funnel(x0, dx, Bs, g, mask,is_colored)
+      case('plenum')
+        call draw_plenum(x0, dx, Bs, g, mask,is_colored)
       case('shock_tube')
         call draw_simple_shock(mask(:,:,:), x0, dx, Bs, g )
       case('no')
