@@ -134,11 +134,11 @@ x_cntr = domain_size(1)-sp_thickness-r_sp_out
         do ix=g+1, Bs(1)+g
             x = dble(ix-(g+1)) * dx(1) + x0(1)
 
-            chi = draw_plenum_inlet(x,r,plenum,h)
-            if (chi>0.0_rk) then
-             mask_color(ix,iy)=color_inlet
-            mask(ix,iy,1:4) = mask(ix,iy,1:4)+chi
-            endif
+           ! chi = draw_plenum_inlet(x,r,plenum,h)
+            !if (chi>0.0_rk) then
+            ! mask_color(ix,iy)=color_inlet
+            !mask(ix,iy,1:4) = mask(ix,iy,1:4)+chi
+            !endif
             
         !    chi=  draw_plenum_outlet(x,r,plenum,h)
          !   if (chi>0.0_rk) then
@@ -149,13 +149,13 @@ x_cntr = domain_size(1)-sp_thickness-r_sp_out
 
             !chi = draw_plenum_rad_sponge(x,r,plenum,h)
             !chi = draw_semicircle_sponge(x,y,x_cntr, y_cntr, r_sp_in, r_sp_out,plenum)
-            chi = draw_parabolic_sponge(x,y,r,plenum)
-            if(chi>0.0_rk) then
-                mask_color(ix,iy) = color_rad_sponge
-                mask(ix,iy,1) = mask(ix,iy,1)+chi
+            !chi = draw_parabolic_sponge(x,y,r,plenum)
+           ! if(chi>0.0_rk) then
+            !    mask_color(ix,iy) = color_rad_sponge
+             !   mask(ix,iy,1) = mask(ix,iy,1)+chi
                 !mask(ix,iy,2) = mask(ix,iy,2)+chi
-               mask(ix,iy,3:4) = mask(ix,iy,3:4)+chi
-            endif
+              ! mask(ix,iy,3:4) = mask(ix,iy,3:4)+chi
+            !endif
         end do
     end do
 end subroutine draw_plenum_sponge2D
@@ -246,12 +246,12 @@ h  = 1.5_rk*max(dx(1), dx(2))
            endif
 
     !what happens in the radial sponge region
-           if (mask_color(ix,iy) == color_rad_sponge) then
-             Phi_ref(ix,iy,1) = rho_sponge
-             Phi_ref(ix,iy,3) = v_sponge
-             Phi_ref(ix,iy,4) = p_sponge
-             C_inv = C_eta_inv
-           endif
+           !if (mask_color(ix,iy) == color_rad_sponge) then
+            ! Phi_ref(ix,iy,1) = rho_sponge
+             !Phi_ref(ix,iy,3) = v_sponge
+             !Phi_ref(ix,iy,4) = p_sponge
+             !C_inv = C_eta_inv
+           !endif
     !add penalization strength to mask
      mask(ix,iy,:) = C_inv*mask(ix,iy,:)
    end do
@@ -274,15 +274,16 @@ implicit none
   real(kind=rk)                         ::  mask, draw_plenum_walls
   real(kind=rk)                         ::r0_pip,r0_ple,width,l_pip
   real(kind=rk)                         ::sp1, sp2,sp3
+  real(kind=rk)                         ::wall_thickness 
 !-----------------------------------------------------------------------!
   mask=0.0_rk
-
+  wall_thickness=plenum%wall_thickness
   r0_ple=0.5_rk*plenum%diameter_ple-plenum%wall_thickness
   width=R_domain
   l_pip = plenum%length_pip
-  sp1 = 0.15_rk/0.8_rk*l_pip*2.0_rk
-  sp2 = 0.1603_rk/0.8_rk*l_pip*2.0_rk
-  sp3 = 0.317_rk/0.8_rk*l_pip*2.0_rk
+  sp1 = 0.15_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
+  sp2 = 0.1603_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
+  sp3 = 0.317_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
   !-------CONSTANT RADIUS PIPE CASE----------!
   !select case(plenum%name)
   !case('const')
@@ -307,9 +308,9 @@ implicit none
   mask = mask+1.0_rk
   endif
   ! wall in west
- ! if (x>domain_size(1)-plenum%wall_thickness) then
-  !mask=mask+1.0_rk
-  !endif
+  if (x>domain_size(1)-plenum%wall_thickness) then
+  mask=mask+1.0_rk
+  endif
 
   !----------------SFC_PDC_CASE 
   !case('sfb_pdc')
@@ -318,13 +319,13 @@ implicit none
      mask=hard_bump(r,r0_pip,width)
   elseif (x>sp1 .and. x<=sp2) then
      r0_pip = 0.0403_rk - (x-sp1)/(sp1-sp2)*(0.02_rk-0.0403_rk)
-     mask=hard_bump(r,r0_pip,width)
+     mask=soft_bump(r,r0_pip,width,h)
   elseif(x>sp2 .and. x<=sp3) then
      r0_pip = 0.02_rk + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)
-     mask=hard_bump(r,r0_pip,width)
+     mask=soft_bump(r,r0_pip,width,h)
   elseif(x>sp3) then
      r0_pip = 0.0403_rk
-     mask=hard_bump(r,r0_pip,width)
+     mask=soft_bump(r,r0_pip,width,h)
   end if
   !end select
   if (x< plenum%wall_thickness) then
@@ -525,33 +526,6 @@ mask2 = 0.0_rk
     draw_parabolic_sponge=mask
 end function
 
-
-function draw_shocktube_walls(x,r,plenum,h)
-implicit none
-!-------------VARIABLES
-real(kind=rk), intent(in) ::x,r,h
-type(type_plenum),intent(in)::plenum
-real(kind=rk) ::mask, draw_shocktube_walls
-real(kind=rk) ::r_pip, wall_thickness, width
-!----------------------!
-mask = 0.0_rk
-width = R_domain
-wall_thickness=plenum%wall_thickness
-r_pip = plenum%diameter_pip*0.5_rk
-
-! Pipe walls in north and south
-if (r>r_pip) then
-   mask = soft_bump(r,r_pip,width,h)
-elseif (x<plenum%wall_thickness .and. r < r_pip) then
-   mask = left_quad_sponge(x,0.0_rk,plenum%wall_thickness)
-elseif (x>domain_size(1)-plenum%wall_thickness .and. r < r_pip) then
-   mask = right_quad_sponge(x,domain_size(1)-plenum%wall_thickness,plenum%wall_thickness)
-endif
-draw_shocktube_walls = mask
-
-end function
-
-
 function left_quad_sponge(x,x0,width)
 !------------------------------------------------------------------------!
 ! DECLARE VARIABLES!
@@ -563,7 +537,7 @@ real(kind=rk)                          ::mask
 
 !------------------------------------------------------------------------!
 x_min=x0
-x_max=x_min+width
+x_max=x_min-width
 mask=((x-x_max)/(x_min-x_max))**2
 left_quad_sponge = mask
 end function
