@@ -17,7 +17,7 @@ MFILES = module_precision.f90 module_globals.f90 module_params.f90 module_timing
 	module_indicators.f90 module_operators.f90 module_navier_stokes.f90 module_ns_penalization.f90 \
 	module_physics_metamodule.f90 module_ACM.f90 module_ConvDiff_new.f90 module_bridge_interface.f90 \
 	module_bridge.f90 module_navier_stokes_params.f90 module_helpers.f90 module_insects_integration_flusi_wabbit.f90 \
-	module_insects.f90 module_boundary_conditions.f90 module_funnel.f90 module_navier_stokes_cases.f90\
+	module_insects.f90 module_boundary_conditions.f90 module_funnel.f90 module_plenum.f90 module_navier_stokes_cases.f90\
 	module_simple_geometry.f90 module_shock.f90 module_pipe_flow.f90 module_sparse_operators.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
@@ -185,6 +185,10 @@ $(OBJDIR)/module_ns_penalization.o: module_ns_penalization.f90 $(OBJDIR)/module_
 $(OBJDIR)/module_funnel.o: module_funnel.f90 $(OBJDIR)/module_precision.o $(OBJDIR)/module_ns_penalization.o \
 	funnel2D.f90 funnel3D.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	
+$(OBJDIR)/module_plenum.o: module_plenum.f90 $(OBJDIR)/module_precision.o $(OBJDIR)/module_ns_penalization.o \
+	plenum2D.f90 
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 $(OBJDIR)/module_pipe_flow.o: module_pipe_flow.f90 $(OBJDIR)/module_precision.o $(OBJDIR)/module_ns_penalization.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -192,13 +196,13 @@ $(OBJDIR)/module_pipe_flow.o: module_pipe_flow.f90 $(OBJDIR)/module_precision.o 
 $(OBJDIR)/module_simple_geometry.o: module_simple_geometry.f90 $(OBJDIR)/module_precision.o $(OBJDIR)/module_ns_penalization.o
 		$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
-$(OBJDIR)/module_navier_stokes_cases.o: module_navier_stokes_cases.f90 $(OBJDIR)/module_funnel.o $(OBJDIR)/module_ns_penalization.o\
+$(OBJDIR)/module_navier_stokes_cases.o: module_navier_stokes_cases.f90 $(OBJDIR)/module_funnel.o $(OBJDIR)/module_plenum.o $(OBJDIR)/module_ns_penalization.o\
 	$(OBJDIR)/module_shock.o $(OBJDIR)/module_simple_geometry.o $(OBJDIR)/module_pipe_flow.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 $(OBJDIR)/module_navier_stokes.o: module_navier_stokes.f90 $(OBJDIR)/module_ns_penalization.o\
 	$(OBJDIR)/module_navier_stokes_params.o $(OBJDIR)/module_sparse_operators.o \
-	$(OBJDIR)/module_navier_stokes_cases.o $(OBJDIR)/module_funnel.o RHS_2D_navier_stokes_periodic.f90\
+	$(OBJDIR)/module_navier_stokes_cases.o $(OBJDIR)/module_funnel.o $(OBJDIR)/module_plenum.o RHS_2D_navier_stokes_periodic.f90\
 	RHS_2D_navier_stokes_bc.f90 RHS_3D_navier_stokes.f90 RHS_2D_cylinder.f90 inicond_NStokes.f90 save_data_ns.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 

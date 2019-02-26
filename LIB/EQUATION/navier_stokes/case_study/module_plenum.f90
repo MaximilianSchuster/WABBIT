@@ -90,11 +90,11 @@ module module_plenum
       real(kind=rk)       :: p_wall
       
       !BLADE VARIABLES
-      real(kind=rk)       ::length_of_blade
-      real(kind=rk)       :: angle_of_attack
-      integer(kind=ik)    ::number_of_blades
-      real(kind=rk)       :: blade_gap
-      real(kind=rk)       :: thickness_of_blade
+      real(kind=rk)       ::L_blade
+      real(kind=rk)       :: AoA
+      integer(kind=ik)    ::n_blades
+      real(kind=rk)       :: gap_blade
+      real(kind=rk)       :: t_blade
 
   end type type_plenum
 
@@ -114,16 +114,16 @@ contains
     subroutine read_params_plenum(params,FILE)
 
       implicit none
-
+      real(kind=rk)::L_blade, AoA, gap_blade,t_blade
+      character(len=90) :: name
+      integer(kind=ik)::n_blades
       ! character(len=*), intent(in) :: filename
       type(inifile) , intent(inout) :: FILE
       !> params structure of navier stokes
       type(type_params_ns),intent(inout)  :: params
       ! READ IN geometry
       ! ----------------
-      call read_param_mpi(FILE, 'plenum', 'name', plenum%name, 'default' )
-
-
+      call read_param_mpi(FILE, 'plenum', 'name', plenum%name,'')
       call read_param_mpi(FILE, 'plenum', 'diameter_ple'  , plenum%diameter_ple, 0.1_rk)
       call read_param_mpi(FILE, 'plenum', 'length_ple'  , plenum%length_ple, 0.156_rk)
       call read_param_mpi(FILE, 'plenum', 'inlet_density', plenum%inlet_density, 1.22_rk)
@@ -141,12 +141,6 @@ contains
                                                           , plenum%sponge_velocity(1:params%dim))
                                                           
       call read_param_mpi(FILE, 'plenum', 'temperature'  , plenum%temperature, 300.0_rk)
-      call read_param_mpi(FILE, 'plenum', 'rho_L'  , plenum%rho_L, 1.0_rk)
-      call read_param_mpi(FILE, 'plenum', 'p_L'  , plenum%p_L, 1.0_rk)
-      call read_param_mpi(FILE, 'plenum', 'u_L'  , plenum%u_L, 0.0_rk)
-      call read_param_mpi(FILE, 'plenum', 'rho_R'  , plenum%rho_R, 0.125_rk)
-      call read_param_mpi(FILE, 'plenum', 'p_R', plenum%p_R, 0.1_rk)
-      call read_param_mpi(FILE, 'plenum', 'u_R',plenum%u_R, 0.0_rk)
       call read_param_mpi(FILE, 'plenum', 'rho_wall'  , plenum%rho_wall, 0.125_rk)
       call read_param_mpi(FILE, 'plenum', 'p_wall', plenum%p_wall, 0.1_rk)
       call read_param_mpi(FILE, 'plenum', 'u_wall',plenum%u_wall, 0.0_rk)
@@ -157,22 +151,27 @@ contains
       
       
       ! BLADE VARIABLES AND PARAMETERS
-      call read_param_mpi(FILE, 'plenum', 'length_of_blade'  , plenum%length_of_blade, 0.05_rk)
-      call read_param_mpi(FILE, 'plenum', 'angle_of_attack'  , plenum%angle_of_attack, 0.0_rk)
-      call read_param_mpi(FILE, 'plenum', 'number_of_blades'  , plenum%number_of_blades, 0)
-     ! call read_param_mpi(FILE, 'plenum', 'blade_gap'  , plenum%blade_gap, 0.1_rk)
-      call read_param_mpi(FILE, 'plenum', 'blade_gap', plenum%blade_gap, 0.1_rk)
-      call read_param_mpi(FILE, 'plenum', 'thickness_of_blade', plenum%thickness_of_blade, 0.02_rk)
+      call read_param_mpi(FILE, 'plenum', 'L_blade'  , plenum%L_blade, 0.1_rk)
+      call read_param_mpi(FILE, 'plenum', 'AoA'  , plenum%AoA, 0.0_rk)
+      call read_param_mpi(FILE, 'plenum', 'n_blades'  , plenum%n_blades, 1)
+      call read_param_mpi(FILE, 'plenum', 'gap_blade', plenum%gap_blade, 0.05_rk)
+      call read_param_mpi(FILE, 'plenum', 't_blade', plenum%t_blade, 0.02_rk)
         
                                                           
-       ! this parameters are global in plenum module!
+      ! these parameters are global in plenum module!
       Rs         =params%Rs
       gamma_     =params%gamma_
       domain_size=params%domain_size
       R_domain   =params%domain_size(2)*0.5_rk
       C_sp_inv   =1.0_rk/params%C_sp
       C_eta_inv   =1.0_rk/params%C_eta
-
+      
+      plenum%L_blade = plenum%L_blade
+      plenum%t_blade = plenum%t_blade
+      plenum%name = plenum%name
+      plenum%gap_blade = plenum%gap_blade
+      plenum%n_blades = plenum%n_blades
+      
       plenum%wall_thickness  = 0.025_rk*domain_size(1)
 
 end subroutine read_params_plenum

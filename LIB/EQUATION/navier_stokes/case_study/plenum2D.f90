@@ -43,16 +43,15 @@ subroutine draw_plenum2D(x0, dx, Bs, g, mask, mask_color)
 
     ! -----------------------------------------------------------------
     real(kind=rk)     :: x, y, r, h
-    real(kind=rk)     :: chi
-    integer(kind=ik)  :: ix, iy,n ! loop variables
+    real(kind=rk)     :: chi,Ly_eff,Ly_div
+    integer(kind=ik)  :: ix, iy,n,blade_no ! loop variables
     integer(kind=ik) ::NoB
     real(kind=rk)     ::y_p_stag
   ! -----------------------------------------------------------------
-NoB = plenum%number_of_blades
-!set smoothing parameter
-! parameter for smoothing function (width)
-    h  = 1.5_rk*max(dx(1), dx(2))
-
+NoB = plenum%n_blades
+y_p_stag = 0.2_rk
+h  = 1.5_rk*max(dx(1), dx(2))
+Ly_eff = domain_size(2)-2.0_rk*plenum%wall_thickness
     ! smooth width in x and y direction
     do iy=g+1, Bs(2)+g
        y = dble(iy-(g+1)) * dx(2) + x0(2)
@@ -72,24 +71,29 @@ NoB = plenum%number_of_blades
 
             ! Walls
             ! -----
-            chi = draw_plenum_walls(x,r,plenum,h)
-            !write(*,*) "we are painting the walls"
+            chi = draw_plenum_walls(x,r,plenum,h)            
             if (chi>0.0_rk) then                       ! default values on the walls
               mask_color(ix,iy)  = color_walls
               mask(ix,iy,1:4)    = mask(ix,iy,1:4) + chi
             end if
-            
-            !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            
-             !write(*,*) "we are starting the blade loop"
-             ! y_p_stag = domain_size(2)/2
-             ! chi = draw_stat_blades(x,y,r,plenum,y_p_stag)
-            
-              !if (chi>0.0_rk) then
-              !   mask_color(ix,iy)   =color_walls
-              !   mask(ix,iy,1:4)     = mask(ix,iy,1:4)+ chi
-             ! endif
+
+
+        
+ 
+ 
+ if (NoB>0) then
+       do blade_no=1,NoB
+                  Ly_div = (domain_size(2)-2.0_rk*plenum%wall_thickness)/(NoB+1.0_rk)
+                  y_p_stag = blade_no*Ly_div+plenum%wall_thickness
+                  chi = draw_stat_blades(x,y,r,plenum,y_p_stag)
+                     if (chi>0.0_rk) then
+                        mask_color(ix,iy)  = color_walls
+                        mask(ix,iy,1:4)    = mask(ix,iy,1:4) + chi
+                     endif
+          
            
+           end do
+           end if
        end do
     end do
 
@@ -113,17 +117,12 @@ subroutine draw_plenum_sponge2D(x0, dx, Bs, g, mask, mask_color)
     real(kind=rk)     :: x, y, r, h
     real(kind=rk)     :: chi
     integer(kind=ik)  :: ix, iy,n ! loop variables
-    real(kind=rk)     :: x_cntr,y_cntr !location of the semicircle sponge center
-    real(kind=rk)     :: r_sp_in, r_sp_out ! sponge inner and outer radius
-  ! -----------------------------------------------------------------
+
+  ! -----plenum%length_pip+plenum%wall_thickness------------------------------------------------------------
 !INITIALISE PARAMETERS
 !sp_thickness = plenum%sponge_thickness
 
 sp_thickness=0.05_rk*domain_size(1)
-r_sp_out = domain_size(2)/2.0_rk
-r_sp_in = r_sp_out-sp_thickness
-y_cntr = domain_size(2)/2.0_rk
-x_cntr = domain_size(1)-sp_thickness-r_sp_out
     ! parameter for smoothing function (width)
     h  = 1.5_rk*max(dx(1), dx(2))
 
@@ -134,28 +133,13 @@ x_cntr = domain_size(1)-sp_thickness-r_sp_out
         do ix=g+1, Bs(1)+g
             x = dble(ix-(g+1)) * dx(1) + x0(1)
 
-           ! chi = draw_plenum_inlet(x,r,plenum,h)
-            !if (chi>0.0_rk) then
-            ! mask_color(ix,iy)=color_inlet
-            !mask(ix,iy,1:4) = mask(ix,iy,1:4)+chi
-            !endif
-            
-        !    chi=  draw_plenum_outlet(x,r,plenum,h)
-         !   if (chi>0.0_rk) then
-         !       mask_color(ix,iy) = color_outlet
-                !mask(ix,iy,1)     = mask(ix,iy,1)+chi
-         !       mask(ix,iy,3:4)   = mask(ix,iy,3:4)+chi
-         !   endif
-
-            !chi = draw_plenum_rad_sponge(x,r,plenum,h)
-            !chi = draw_semicircle_sponge(x,y,x_cntr, y_cntr, r_sp_in, r_sp_out,plenum)
-            !chi = draw_parabolic_sponge(x,y,r,plenum)
-           ! if(chi>0.0_rk) then
-            !    mask_color(ix,iy) = color_rad_sponge
-             !   mask(ix,iy,1) = mask(ix,iy,1)+chi
-                !mask(ix,iy,2) = mask(ix,iy,2)+chi
-              ! mask(ix,iy,3:4) = mask(ix,iy,3:4)+chi
-            !endif
+            chi = draw_plenum_rad_sponge(x,r,plenum,h)
+            if(chi>0.0_rk) then
+                mask_color(ix,iy) = color_walls
+                mask(ix,iy,1) = mask(ix,iy,1)+chi
+                mask(ix,iy,2) = mask(ix,iy,2)+chi
+               mask(ix,iy,3:4) = mask(ix,iy,3:4)+chi
+            endif
         end do
     end do
 end subroutine draw_plenum_sponge2D
@@ -220,7 +204,7 @@ h  = 1.5_rk*max(dx(1), dx(2))
             p   = phi(ix,iy,pF)
             C_inv=C_eta_inv
 
-     !what happens in solid obstacles (walls)
+     !what happens in solid obstacles (walls) no slip wall is penalized by u=v=0, rho == arbitrary value and p == computed via ideal gas law
             if (mask_color(ix,iy)==color_walls) then
                Phi_ref(ix,iy,2) = 0.0_rk ! no velocity in x
                Phi_ref(ix,iy,3) = 0.0_rk ! no velocity in y
@@ -229,31 +213,7 @@ h  = 1.5_rk*max(dx(1), dx(2))
               C_inv = C_eta_inv
             end if
 
-     !what happens in the inlet region
-            if (mask_color(ix,iy)==color_inlet) then
-              Phi_ref(ix,iy,1) = rho_sponge
-              Phi_ref(ix,iy,2) = 0.0_rk
-              Phi_ref(ix,iy,3) = 0.0_rk
-              Phi_ref(ix,iy,4) = rho*Rs*temperature
-              C_inv = C_eta_inv
-            endif
-
-    !what happens in the outlet region
-            if (mask_color(ix,iy)==color_outlet) then
-              Phi_ref(ix,iy,1) = rho_outlet
-              Phi_ref(ix,iy,4) = p_outlet
-              C_inv = C_eta_inv
-           endif
-
-    !what happens in the radial sponge region
-           !if (mask_color(ix,iy) == color_rad_sponge) then
-            ! Phi_ref(ix,iy,1) = rho_sponge
-             !Phi_ref(ix,iy,3) = v_sponge
-             !Phi_ref(ix,iy,4) = p_sponge
-             !C_inv = C_eta_inv
-           !endif
-    !add penalization strength to mask
-     mask(ix,iy,:) = C_inv*mask(ix,iy,:)
+    mask(ix,iy,:) = C_inv*mask(ix,iy,:)
    end do
     end do
 
@@ -271,49 +231,51 @@ implicit none
   real(kind=rk),    intent(in)          :: x, r, h
   type(type_plenum),intent(in)          ::plenum
 
-  real(kind=rk)                         ::  mask, draw_plenum_walls
+  real(kind=rk)                         ::mask, draw_plenum_walls
   real(kind=rk)                         ::r0_pip,r0_ple,width,l_pip
   real(kind=rk)                         ::sp1, sp2,sp3
   real(kind=rk)                         ::wall_thickness 
+  character(len=90)                     :: geo_case
 !-----------------------------------------------------------------------!
   mask=0.0_rk
   wall_thickness=plenum%wall_thickness
   r0_ple=0.5_rk*plenum%diameter_ple-plenum%wall_thickness
   width=R_domain
   l_pip = plenum%length_pip
-  sp1 = 0.15_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
-  sp2 = 0.1603_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
-  sp3 = 0.317_rk/0.8_rk*l_pip*2.0_rk+wall_thickness
+  geo_case = plenum%name
+  sp1 = 0.15_rk/0.8_rk*l_pip+plenum%wall_thickness
+  sp2 = 0.1603_rk/0.8_rk*l_pip+plenum%wall_thickness
+  sp3 = 0.317_rk/0.8_rk*l_pip+plenum%wall_thickness!*2.0_rk+wall_thickness
   !-------CONSTANT RADIUS PIPE CASE----------!
-  !select case(plenum%name)
-  !case('const')
-  !if (x<= plenum%length_pip) then
+  
+  
+  
+!-----------------------------------------------------------!
+!-----------------____________________----------------------!
+!----------------|CONSTANT RADIUS PIPE|---------------------!
+!----------------|____________________|---------------------!
+  select case(geo_case)
+  case('const')
+  if (x<= plenum%length_pip) then
     ! mask for r>R_domain-wall_thickness   (outer wall)
          !mask=mask+smoothstep(R_domain-funnel%wall_thickness-r,h)
- !       r0_pip=0.5_rk*plenum%diameter_pip
- !      mask=hard_bump(r,r0_pip,width)
- ! elseif (x >= plenum%length_pip) then
-  !plenum wall to suppress interference from periodic BC
-        ! +h because the sponge domain should not overlap with the walls
-  !     mask=soft_bump(r,r0_ple,width,h)
+        r0_pip=0.5_rk*plenum%diameter_pip
+       mask=hard_bump(r,r0_pip,width)
+  elseif (x >= plenum%length_pip) then
 
-         !mask=mask+smoothstep(R_domain-0.333_rk*funnel%wall_thickness+h-r,h)
-  !endif
+       mask=soft_bump(r,r0_ple,width,h)
 
-
-  !draw_plenum_walls=mask
-
-  ! wall in east
-  if (x< plenum%wall_thickness) then
-  mask = mask+1.0_rk
-  endif
-  ! wall in west
-  if (x>domain_size(1)-plenum%wall_thickness) then
-  mask=mask+1.0_rk
   endif
 
-  !----------------SFC_PDC_CASE 
-  !case('sfb_pdc')
+
+!  draw_plenum_walls=mask
+
+
+!-----------------------------------------------------------!
+!-----------------____________------------------------------!
+!----------------|SFC_PDC_CASE|-----------------------------!
+!----------------|____________|-----------------------------!
+  case('sfb_pdc')
   if (x<=sp1)then 
      r0_pip = 0.0403_rk
      mask=hard_bump(r,r0_pip,width)
@@ -323,96 +285,87 @@ implicit none
   elseif(x>sp2 .and. x<=sp3) then
      r0_pip = 0.02_rk + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)
      mask=soft_bump(r,r0_pip,width,h)
-  elseif(x>sp3) then
+  elseif(x>sp3 .and. x <l_pip) then
      r0_pip = 0.0403_rk
      mask=soft_bump(r,r0_pip,width,h)
   end if
-  !end select
+  
+  case default
+  call abort(8546533,"ERROR: No geometry for the plenum. "//plenum%name)
+  
+  
+  end select
   if (x< plenum%wall_thickness) then
   mask = mask+1.0_rk
   endif
   
   !---------!
+  
+  
+    ! wall in east
+  if (x< plenum%wall_thickness) then
+  mask = mask+1.0_rk
+  endif
+  ! wall in west
+  if (x>domain_size(1)-plenum%wall_thickness) then
+  mask=mask+1.0_rk
+  endif
+  
   if (mask>1.0_rk) then
   mask=1.0_rk
   endif
+  
   draw_plenum_walls=mask
   
 end function
 
 !=======================================================================
 
-function draw_plenum_inlet(x, r, plenum, h)
-implicit none
-!----------------------------------------------------------------!
-real(kind=rk), intent(in)               :: x,r,h
-type(type_plenum),intent(in)            :: plenum
-real(kind=rK)                           ::mask, draw_plenum_inlet
-real(kind=rk)                           ::r0,width
-!----------------------------------------------------------------!
-mask=0.0_rk
-width=0.3_rk*plenum%diameter_pip*0.5_rk
-r0=0.0_rk
-!  if (x>=plenum%wall_thickness .and. x<2.0_rk*plenum%wall_thickness) then
-!      mask=soft_bump(r,r0,width,h)
-!  endif
-draw_plenum_inlet=mask
+           
 
-
-end function draw_plenum_inlet
-
-!=======================================================================
-function draw_plenum_outlet(x,r,plenum,h)
-implicit none
-!-----------------------------------------------------------------!
-  real(kind=rk),    intent(in)          :: x, r, h
-  type(type_plenum),intent(in)          ::plenum
-
-  real(kind=rk)                         ::draw_plenum_outlet,mask
-  real(kind=rk)                         ::r0,width
-!-----------------------------------------------------------------!
-
-
-mask=0.0_rk
-r0=0.0_rk
-width=0.5_rk*plenum%diameter_ple-plenum%wall_thickness
-if (x<domain_size(1)-plenum%wall_thickness .and. &
-   x> domain_size(1)-2.0_rk*plenum%wall_thickness ) then
-   mask=soft_bump(r,r0,width,h)
-endif
-draw_plenum_outlet=mask
-end function draw_plenum_outlet
 
 function draw_stat_blades(x,y,r,plenum,y_p_stag)
 implicit none
 !-----------------------------------------------------------------------------------!
 real(kind=rk), intent(in)               :: x,y,r
 type(type_plenum),intent(in)            :: plenum
-real(kind=rk)                           :: AoA,AoA_rad, L_blade,T_blade
+real(kind=rk)                           :: alpha,AoA_rad, length_blade,thickness_blade
 real(kind=rk)                           :: eta, nu
 real(kind=rk)                           :: blade_gap
+real(kind=rk)                           :: x_m,y_m, nu_m,eta_m
 real(kind=rk)                           ::x_p_stag, y_p_stag, nu_p_stag, eta_p_stag
 real(kind=rk)                           ::draw_stat_blades,mask
 !real(kind=rk),dimension(2)::A1,A2,A3,A4 
 !====================================================================================
 
-L_blade = plenum%length_of_blade ! how long is the turbine blade (chord length)
-T_blade = plenum%thickness_of_blade ! how thick is the turbine blade
-blade_gap = plenum%blade_gap
-x_p_stag = plenum%length_pip+blade_gap ! where is the x location of the blade nose
-AoA = plenum%angle_of_attack
-AoA_rad = AoA*3.14159265359_rk/180.0_rk
+length_blade = plenum%L_blade! how long is the turbine blade (chord length)
+thickness_blade = plenum%t_blade ! how thick is the turbine blade
+blade_gap = plenum%gap_blade
+x_p_stag = plenum%length_pip+blade_gap! where is the x location of the blade nose
+alpha = plenum%AoA
+AoA_rad = alpha*3.14159265359_rk/180.0_rk
+
+
+
 
 ! COORDINATE SYSTEM TRANSFORMATION
-nu = cos(AoA_rad)*x + sin(AoA_rad)*y
-eta = -sin(AoA_rad)*x + cos(AoA_rad)*y 
+nu = cos(-AoA_rad)*x + sin(-AoA_rad)*y
+eta = -sin(-AoA_rad)*x + cos(-AoA_rad)*y 
 ! STAGNATION POINT COORDINATES
-nu_p_stag = cos(AoA_rad)*x_p_stag + sin(AoA_rad)*y_p_stag
-eta_p_stag = -sin(AoA_rad)*x_p_stag + cos(AoA_rad)*y_p_stag
+nu_p_stag = cos(-AoA_rad)*x_p_stag + sin(-AoA_rad)*y_p_stag
+eta_p_stag = -sin(-AoA_rad)*x_p_stag + cos(-AoA_rad)*y_p_stag
+! center point coordinates
+x_m = plenum%length_pip+ 0.5_rk*(domain_size(1)-plenum%length_pip)
+y_m = y_p_stag
+nu_m = cos(-AoA_rad)*x_m + sin(-AoA_rad)*y_m
+eta_m =  -sin(-AoA_rad)*x_m+ cos(-AoA_rad)*y_m
+
+
 !FIND CORNERS OF RECTANGLE in nu,eta coordinate system
 !          A4---------------A3
 !           |               |
-!           |               |
+!           |       x       |
+!           |     (x_m,y_m) |
 !          A1---------------A2
 
 !A1(1)= nu_p_stag
@@ -423,12 +376,17 @@ eta_p_stag = -sin(AoA_rad)*x_p_stag + cos(AoA_rad)*y_p_stag
 !A3(2)= eta_p_stag + T_blade/2.0_rk
 !A4(1)= nu_p_stag
 !A4(2)= eta_p_stag + T_blade/2.0_rk
-  if ( nu > nu_p_stag .and. &
-       nu < nu_p_stag+L_blade .and. &
-       eta > eta_p_stag-T_blade/2.0_rk .and. &
-       eta < eta_p_stag+T_blade/2.0_rk) then
+  if ( nu >(nu_m-length_blade/2.0_rk) .and. &
+       nu < (nu_m+length_blade/2.0_rk) .and. &
+       eta > (eta_m-thickness_blade/2.0_rk) .and. &
+       eta < (eta_m+thickness_blade/2.0_rk)) then
        !write(*,*)" We re inside the stator blade"
+
        mask=1.0_rk
+       
+       if((y<plenum%wall_thickness) .or. (y>domain_size(2)-plenum%wall_thickness))  then
+          call abort(90790,"Error: The blades do not fit the plenum domain. Reduce number of blades or blade length")
+       endif
   endif
 
 draw_stat_blades=mask
@@ -446,45 +404,16 @@ implicit none
   real(kind=rk)                         ::r0,width
 !-------------------------------------------------------------------!
   mask=0.0_rk
-  r0=0.5_rk*plenum%diameter_ple-2.0_rk*plenum%wall_thickness
+  r0=0.5_rk*plenum%diameter_ple-plenum%wall_thickness
   width=plenum%wall_thickness
 if (x>plenum%length_pip.and. &
-   x< domain_size(1)-2.0_rk*plenum%wall_thickness) then
+   x< domain_size(1)-plenum%wall_thickness) then
    mask=soft_bump(r,r0,width,h)
 endif
 draw_plenum_rad_sponge=mask
 end function
 
-!=======================================================================
-function draw_semicircle_sponge(x,y,x_cntr, y_cntr, r_sp_in, r_sp_out,plenum)
-implicit none
-!----------------------------------------------------------------------!
-!DECLARE VARIABLES!
-real(kind=rk), intent(in)               :: x,y,x_cntr, y_cntr, r_sp_in, r_sp_out
-type(type_plenum),intent(in)            :: plenum
 
-real(kind=rk)                           :: draw_semicircle_sponge,mask
-real(kind=rk)                           :: dist
-
-!----------------------------------------------------------------------!
-!INITIALISE VARIABLES!
-!calculate distance from instantanteous point to semicircle cntr
-dist = (abs(x-x_cntr)**2.0_rk+abs(y-y_cntr)**2.0_rk)**0.5_rk
-!calculate sponge value with quadratic behavior
-!default for mask = 0
-mask = 0.0_rk
-if (x> x_cntr) then
-    !if r_in < distance < r_out set sponge according to power law
-    if (dist >= r_sp_in .and. dist <= r_sp_out) then
-        mask = 1/((r_sp_out-r_sp_in)**2)*(dist-r_sp_in)**2
-    endif
-    !if distance > r_out set sponge = 1
-    if (dist > r_sp_out) then
-        mask=1.0_rk
-    endif
-endif
-draw_semicircle_sponge=mask
-end function
 
 function draw_parabolic_sponge(x,y,r,plenum)
 implicit none
@@ -526,36 +455,6 @@ mask2 = 0.0_rk
     draw_parabolic_sponge=mask
 end function
 
-function left_quad_sponge(x,x0,width)
-!------------------------------------------------------------------------!
-! DECLARE VARIABLES!
-real(kind=rk), intent(in)              ::x,x0,width
-!type(type_plenum), intent(in)          ::plenum
-
-real(kind=rk)                          ::left_quad_sponge, x_min,x_max
-real(kind=rk)                          ::mask
-
-!------------------------------------------------------------------------!
-x_min=x0
-x_max=x_min-width
-mask=((x-x_max)/(x_min-x_max))**2
-left_quad_sponge = mask
-end function
-
-function right_quad_sponge(x,x0,width)
-implicit none
-!------------------------------------------------------------------------!
-! DECLARE VARIABLES!
-real(kind=rk), intent(in)              ::x,x0,width
-!type(type_plenum), intent(in)          ::plenum
-
-real(kind=rk)                          ::right_quad_sponge, x_min,x_max
 
 
-!------------------------------------------------------------------------!
-x_min=x0
-x_max=x_min+width
-right_quad_sponge =((x-x_min)/(x_max-x_min))**2
-
-end function
 
