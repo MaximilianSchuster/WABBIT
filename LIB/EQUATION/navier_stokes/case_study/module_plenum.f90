@@ -46,10 +46,10 @@ module module_plenum
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++
   !integer(kind=2),parameter :: color_capillary  =6
   !integer(kind=2),parameter :: color_outlet     =5
-  integer(kind=2),parameter :: color_rad_sponge =4
-  integer(kind=2),parameter :: color_walls      =3
-  integer(kind=2),parameter :: color_outlet     =2
-  integer(kind=2),parameter :: color_inlet      =1
+  integer(kind=2),parameter :: color_rad_sponge       =4
+  integer(kind=2),parameter :: color_walls            =3
+  integer(kind=2),parameter :: color_west_sponge      =2
+  integer(kind=2),parameter :: color_east_wall        =1
 !++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -166,13 +166,13 @@ contains
       C_sp_inv   =1.0_rk/params%C_sp
       C_eta_inv   =1.0_rk/params%C_eta
       
-      plenum%L_blade = plenum%L_blade
-      plenum%t_blade = plenum%t_blade
-      plenum%name = plenum%name
-      plenum%gap_blade = plenum%gap_blade
-      plenum%n_blades = plenum%n_blades
+      !plenum%L_blade = plenum%L_blade
+      !plenum%t_blade = plenum%t_blade
+      !plenum%name = plenum%name
+      !plenum%gap_blade = plenum%gap_blade
+      !plenum%n_blades = plenum%n_blades
       
-      plenum%wall_thickness  = 0.025_rk*domain_size(1)
+      !plenum%wall_thickness  = 0.1_rk*domain_size(1)
 
 end subroutine read_params_plenum
 

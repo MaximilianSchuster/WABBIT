@@ -71,24 +71,24 @@ Ly_eff = domain_size(2)-2.0_rk*plenum%wall_thickness
 
             ! Walls
             ! -----
-            chi = draw_plenum_walls(x,r,plenum,h)            
+            chi = draw_plenum_walls(x,y,r,plenum,h)            
             if (chi>0.0_rk) then                       ! default values on the walls
               mask_color(ix,iy)  = color_walls
-              mask(ix,iy,1:4)    = mask(ix,iy,1:4) + chi
+              mask(ix,iy,UxF)    = mask(ix,iy,UxF) + chi
+              mask(ix,iy,UyF)    = mask(ix,iy,UyF) + chi
+              !mask(ix,iy,pF)      =mask(ix,iy,pF) + chi
             end if
-
-
-        
- 
- 
- if (NoB>0) then
-       do blade_no=1,NoB
+          
+       if (NoB>0) then
+           do blade_no=1,NoB
                   Ly_div = (domain_size(2)-2.0_rk*plenum%wall_thickness)/(NoB+1.0_rk)
                   y_p_stag = blade_no*Ly_div+plenum%wall_thickness
                   chi = draw_stat_blades(x,y,r,plenum,y_p_stag)
                      if (chi>0.0_rk) then
                         mask_color(ix,iy)  = color_walls
-                        mask(ix,iy,1:4)    = mask(ix,iy,1:4) + chi
+                        mask(ix,iy,UxF)    = mask(ix,iy,UxF) + chi
+                        mask(ix,iy,UyF)    = mask(ix,iy,UyF) + chi
+                        !mask(ix,iy,pF)    = mask(ix,iy,pF)  + chi
                      endif
           
            
@@ -107,12 +107,12 @@ subroutine draw_plenum_sponge2D(x0, dx, Bs, g, mask, mask_color)
 !#DECLARE VARIABLES
 !###########
     ! -----------------------------------------------------------------
-    integer(kind=ik), intent(in)             :: g          !< grid parameter
+    integer(kind=ik), intent(in)               :: g          !< grid parameter
     integer(kind=ik), dimension(3), intent(in) :: Bs
-    real(kind=rk)                           :: sp_thickness
-    real(kind=rk), intent(in)                :: x0(2), dx(2)   !< coordinates of block and block spacinf
-    real(kind=rk), intent(inout)             :: mask(:,:,:)    !< mask function
-    integer(kind=2), intent(inout), optional :: mask_color(:,:)!< identifyers of mask parts (plates etc)
+    real(kind=rk)                              :: sp_thickness
+    real(kind=rk), intent(in)                  :: x0(2), dx(2)   !< coordinates of block and block spacinf
+    real(kind=rk), intent(inout)               :: mask(:,:,:)    !< mask function
+    integer(kind=2), intent(inout), optional   :: mask_color(:,:)!< identifyers of mask parts (plates etc)
     ! -----------------------------------------------------------------
     real(kind=rk)     :: x, y, r, h
     real(kind=rk)     :: chi
@@ -132,13 +132,27 @@ sp_thickness=0.05_rk*domain_size(1)
        r = abs(y-domain_size(2)*0.5_rk)
         do ix=g+1, Bs(1)+g
             x = dble(ix-(g+1)) * dx(1) + x0(1)
-
-            chi = draw_plenum_rad_sponge(x,r,plenum,h)
-            if(chi>0.0_rk) then
-                mask_color(ix,iy) = color_walls
-                mask(ix,iy,1) = mask(ix,iy,1)+chi
-                mask(ix,iy,2) = mask(ix,iy,2)+chi
-               mask(ix,iy,3:4) = mask(ix,iy,3:4)+chi
+            !for the const pipe we only need a sponge in the right bound.
+            ! WEST DOMAIN SPONGE
+            if (x>domain_size(1)-plenum%wall_thickness) then
+            chi = draw_parabolic_sponge(x,y,r,plenum)
+                if(chi>0.0_rk) then
+                    mask_color(ix,iy) = color_west_sponge
+                    mask(ix,iy,rhoF) = mask(ix,iy,rhoF)+chi
+                    mask(ix,iy, pF) = mask(ix,iy,pF)+chi
+                    mask(ix,iy, UxF) = mask(ix,iy,UxF)+chi
+                    mask(ix,iy, UyF) = mask(ix,iy,UyF)+chi
+                endif
+            endif
+            
+            ! EAST DOMAIN WALL
+            if (x< plenum%wall_thickness) then
+                chi = 1.0_rk
+                if (chi>0.0_rk) then
+                       mask_color(ix,iy) = color_east_wall
+                       mask(ix,iy,UxF) = mask(ix,iy,UxF)+chi
+                       mask(ix,iy,UyF) = mask(ix,iy,UyF)+chi            
+                endif
             endif
         end do
     end do
@@ -205,16 +219,29 @@ h  = 1.5_rk*max(dx(1), dx(2))
             C_inv=C_eta_inv
 
      !what happens in solid obstacles (walls) no slip wall is penalized by u=v=0, rho == arbitrary value and p == computed via ideal gas law
-            if (mask_color(ix,iy)==color_walls) then
-               Phi_ref(ix,iy,2) = 0.0_rk ! no velocity in x
-               Phi_ref(ix,iy,3) = 0.0_rk ! no velocity in y
-               Phi_ref(ix,iy, 4) = rho * Rs * temperature! set pressure with ideal gas law
-               Phi_ref(ix,iy,1) = rho_sponge !
-              C_inv = C_eta_inv
-            end if
-
-    mask(ix,iy,:) = C_inv*mask(ix,iy,:)
-   end do
+            ! LEFT WALL
+               if (mask_color(ix,iy)==color_east_wall) then
+                   Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
+                   Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                   !Phi_ref(ix,iy, pF) = rho * Rs * temperature! set pressure with ideal gas law
+                   !Phi_ref(ix,iy,rhoF) = 0.5_rk !
+                   C_inv = C_eta_inv
+               end if
+            ! RIGHT WALL/SPONGE
+               if (mask_color(ix,iy)==color_west_sponge) then
+                  Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
+                  Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                  Phi_ref(ix,iy, rhoF) = plenum%sponge_density!rho * Rs * temperature! set pressure with ideal gas law
+                  Phi_ref(ix,iy,pF) = plenum%sponge_pressure!
+                  C_inv = C_eta_inv
+               endif
+               
+               if (mask_color(ix,iy)==color_walls) then
+                  Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
+                  Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y               
+               end if
+               mask(ix,iy,:) = C_inv*mask(ix,iy,:)
+       end do
     end do
 
 end subroutine compute_plenum_penal2D
@@ -225,27 +252,31 @@ end subroutine compute_plenum_penal2D
 
 !=======================================================================
 
-function draw_plenum_walls(x, r, plenum, h)
+function draw_plenum_walls(x,y, r,plenum,h)
 implicit none
 !-----------------------------------------------------------------------!
-  real(kind=rk),    intent(in)          :: x, r, h
+  real(kind=rk)                         :: x,r, h
   type(type_plenum),intent(in)          ::plenum
-
+  real(kind=rk)                         ::y
   real(kind=rk)                         ::mask, draw_plenum_walls
   real(kind=rk)                         ::r0_pip,r0_ple,width,l_pip
   real(kind=rk)                         ::sp1, sp2,sp3
   real(kind=rk)                         ::wall_thickness 
   character(len=90)                     :: geo_case
+  real(kind=rk)                         ::geom_offset
+  real(kind=rk)                         ::L_scaling
 !-----------------------------------------------------------------------!
   mask=0.0_rk
+  L_scaling = plenum%length_pip/0.8_rk ! scaling factor to take into acocunt that pipe is squeezed from One Flame default value 0.8
+  geom_offset = 8.0_rk/1000.0_rk
   wall_thickness=plenum%wall_thickness
   r0_ple=0.5_rk*plenum%diameter_ple-plenum%wall_thickness
   width=R_domain
   l_pip = plenum%length_pip
   geo_case = plenum%name
-  sp1 = 0.15_rk/0.8_rk*l_pip+plenum%wall_thickness
-  sp2 = 0.1603_rk/0.8_rk*l_pip+plenum%wall_thickness
-  sp3 = 0.317_rk/0.8_rk*l_pip+plenum%wall_thickness!*2.0_rk+wall_thickness
+  sp1 = 0.5_rk*0.3_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
+  sp2 = 0.5_rk*0.3206_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
+  sp3 = 0.5_rk*0.634_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset!*2.0_rk+wall_thickness
   !-------CONSTANT RADIUS PIPE CASE----------!
   
   
@@ -257,7 +288,6 @@ implicit none
   select case(geo_case)
   case('const')
   if (x<= plenum%length_pip) then
-    ! mask for r>R_domain-wall_thickness   (outer wall)
          !mask=mask+smoothstep(R_domain-funnel%wall_thickness-r,h)
         r0_pip=0.5_rk*plenum%diameter_pip
        mask=hard_bump(r,r0_pip,width)
@@ -277,17 +307,17 @@ implicit none
 !----------------|____________|-----------------------------!
   case('sfb_pdc')
   if (x<=sp1)then 
-     r0_pip = 0.0403_rk
+     r0_pip = 0.0403_rk*L_scaling
      mask=hard_bump(r,r0_pip,width)
   elseif (x>sp1 .and. x<=sp2) then
-     r0_pip = 0.0403_rk - (x-sp1)/(sp1-sp2)*(0.02_rk-0.0403_rk)
-     mask=soft_bump(r,r0_pip,width,h)
+     r0_pip = 0.0403_rk*L_scaling - (x-sp1)/(sp1-sp2)*(0.02_rk-0.0403_rk)*L_scaling
+     mask=hard_bump(r,r0_pip,width)!,h)(h needed for soft_bump
   elseif(x>sp2 .and. x<=sp3) then
-     r0_pip = 0.02_rk + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)
-     mask=soft_bump(r,r0_pip,width,h)
-  elseif(x>sp3 .and. x <l_pip) then
-     r0_pip = 0.0403_rk
-     mask=soft_bump(r,r0_pip,width,h)
+     r0_pip = 0.02_rk*L_scaling + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)*L_scaling
+     mask=hard_bump(r,r0_pip,width)!,h)
+  elseif(x>sp3 .and. x <=l_pip) then
+     r0_pip = 0.0403_rk*L_scaling
+     mask=hard_bump(r,r0_pip,width)!,h)
   end if
   
   case default
@@ -295,21 +325,22 @@ implicit none
   
   
   end select
-  if (x< plenum%wall_thickness) then
-  mask = mask+1.0_rk
-  endif
+!  if (x< plenum%wall_thickness) then
+!  mask = mask+1.0_rk
+!  endif
   
   !---------!
   
   
     ! wall in east
-  if (x< plenum%wall_thickness) then
-  mask = mask+1.0_rk
-  endif
-  ! wall in west
-  if (x>domain_size(1)-plenum%wall_thickness) then
-  mask=mask+1.0_rk
-  endif
+  !if (x< plenum%wall_thickness) then
+  !mask = mask+1.0_rk
+  !endif
+  !wall in west
+ ! if (x>domain_size(1)-plenum%wall_thickness) then deactivated to try wall with lower density left
+ ! mask = draw_parabolic_sponge(x,y,r,plenum)
+ ! !mask=mask+1.0_rk
+ ! endif
   
   if (mask>1.0_rk) then
   mask=1.0_rk
