@@ -38,7 +38,7 @@ endif
 #Place of Sparse BLAS objects
 SB_LIB = #-L/home/krah/develop/sblas/SOFTWARE -lSparseBLAS_GNU
 #Place of Sparse BLAS modules
-SB_INCL =# -I/home/krah/develop/sblas/SOFTWARE
+SB_INCL =#-I/home/krah/develop/sblas/SOFTWARE
 #-------------------------------------------------------------------------------
 # PRAGMAS part.
 #-------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -L$(HDF_LIB)64 $(SB_LIB) -lhdf5_fortran -l
 FFLAGS += -I$(HDF_INC) $(SB_INCL)
 # for GNU/gfortran, use -D for example: "PRAGMAS=-DTEST" will turn "#ifdef TEST" to true in the code
 # different pragmas are space-separated
-PRAGMAS =# -DSBLAS #-DBLOCKINGSENDRECV
+PRAGMAS =#-DSBLAS #-DBLOCKINGSENDRECV
 endif
 
 #-------------------------------------------------------------------------------

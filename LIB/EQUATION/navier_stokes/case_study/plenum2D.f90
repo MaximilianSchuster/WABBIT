@@ -76,7 +76,7 @@ Ly_eff = domain_size(2)-2.0_rk*plenum%wall_thickness
               mask_color(ix,iy)  = color_walls
               mask(ix,iy,UxF)    = mask(ix,iy,UxF) + chi
               mask(ix,iy,UyF)    = mask(ix,iy,UyF) + chi
-              !mask(ix,iy,pF)      =mask(ix,iy,pF) + chi
+              mask(ix,iy,pF)      =mask(ix,iy,pF) + chi
             end if
           
        if (NoB>0) then
@@ -88,7 +88,7 @@ Ly_eff = domain_size(2)-2.0_rk*plenum%wall_thickness
                         mask_color(ix,iy)  = color_walls
                         mask(ix,iy,UxF)    = mask(ix,iy,UxF) + chi
                         mask(ix,iy,UyF)    = mask(ix,iy,UyF) + chi
-                        !mask(ix,iy,pF)    = mask(ix,iy,pF)  + chi
+                        mask(ix,iy,pF)    = mask(ix,iy,pF)  + chi
                      endif
           
            
@@ -114,7 +114,7 @@ subroutine draw_plenum_sponge2D(x0, dx, Bs, g, mask, mask_color)
     real(kind=rk), intent(inout)               :: mask(:,:,:)    !< mask function
     integer(kind=2), intent(inout), optional   :: mask_color(:,:)!< identifyers of mask parts (plates etc)
     ! -----------------------------------------------------------------
-    real(kind=rk)     :: x, y, r, h
+    real(kind=rk)     :: x, y, r, h, xstart, xEnd
     real(kind=rk)     :: chi
     integer(kind=ik)  :: ix, iy,n ! loop variables
 
@@ -133,25 +133,29 @@ sp_thickness=0.05_rk*domain_size(1)
         do ix=g+1, Bs(1)+g
             x = dble(ix-(g+1)) * dx(1) + x0(1)
             !for the const pipe we only need a sponge in the right bound.
+            
             ! WEST DOMAIN SPONGE
-            if (x>domain_size(1)-plenum%wall_thickness) then
-            chi = draw_parabolic_sponge(x,y,r,plenum)
+         !   if (x>domain_size(1)-plenum%wall_thickness) then
+         !   chi = draw_parabolic_sponge(x,y,r,plenum)
+             xstart = domain_size(1)-3.0_rk*plenum%wall_thickness
+             xEnd = domain_size(1)
+             chi = draw_double_sponge(x,y,r,plenum,h,xstart,xEnd)   
                 if(chi>0.0_rk) then
                     mask_color(ix,iy) = color_west_sponge
-                    mask(ix,iy,rhoF) = mask(ix,iy,rhoF)+chi
-                    mask(ix,iy, pF) = mask(ix,iy,pF)+chi
-                    mask(ix,iy, UxF) = mask(ix,iy,UxF)+chi
-                    mask(ix,iy, UyF) = mask(ix,iy,UyF)+chi
+                    mask(ix,iy,rhoF)  = mask(ix,iy,rhoF)+chi
+                    mask(ix,iy, pF)   = mask(ix,iy,pF)+chi
+                    mask(ix,iy, UxF)  = mask(ix,iy,UxF)+chi
+                    !mask(ix,iy, UyF)  = mask(ix,iy,UyF)+chi
                 endif
-            endif
+            !endif
             
             ! EAST DOMAIN WALL
             if (x< plenum%wall_thickness) then
                 chi = 1.0_rk
                 if (chi>0.0_rk) then
                        mask_color(ix,iy) = color_east_wall
-                       mask(ix,iy,UxF) = mask(ix,iy,UxF)+chi
-                       mask(ix,iy,UyF) = mask(ix,iy,UyF)+chi            
+                       mask(ix,iy,UxF)   = mask(ix,iy,UxF)+chi
+                       mask(ix,iy,UyF)   = mask(ix,iy,UyF)+chi            
                 endif
             endif
         end do
@@ -223,22 +227,39 @@ h  = 1.5_rk*max(dx(1), dx(2))
                if (mask_color(ix,iy)==color_east_wall) then
                    Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
                    Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                   !if (x>plenum%wall_thickness*0.5_rk) then
+                   !Phi_ref(ix,iy,pF) = p_sponge + (600000.0_rk-p_sponge)*2.0_rk*x/(plenum%wall_thickness)
+                   !Phi_ref(ix,iy,rhoF) = rho_sponge + (1.0_rk-rho_sponge)*2.0_rk*x/(plenum%wall_thickness)
+                   !elseif(x<plenum%wall_thickness*0.5_rk) then
+                   !Phi_ref(ix,iy,pF) = p_sponge 
+                   !Phi_ref(ix,iy,rhoF) = rho_sponge 
                    !Phi_ref(ix,iy, pF) = rho * Rs * temperature! set pressure with ideal gas law
                    !Phi_ref(ix,iy,rhoF) = 0.5_rk !
+                   !endif
                    C_inv = C_eta_inv
                end if
             ! RIGHT WALL/SPONGE
+               !if (x> domain_size(1)-plenum%wall_thickness) then
+                  !Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
+                  !Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                  !Phi_ref(ix,iy, rhoF) = rho_sponge!rho * Rs * temperature! set pressure with ideal gas law
+                  !Phi_ref(ix,iy,pF) = p_sponge!
+                  !end if
                if (mask_color(ix,iy)==color_west_sponge) then
                   Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
-                  Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                  !Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
                   Phi_ref(ix,iy, rhoF) = plenum%sponge_density!rho * Rs * temperature! set pressure with ideal gas law
                   Phi_ref(ix,iy,pF) = plenum%sponge_pressure!
                   C_inv = C_eta_inv
                endif
                
                if (mask_color(ix,iy)==color_walls) then
+                  if(x<plenum%wall_thickness) then
+                  
                   Phi_ref(ix,iy,UxF) = 0.0_rk ! no velocity in x
-                  Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y               
+                  Phi_ref(ix,iy,UyF) = 0.0_rk ! no velocity in y
+                  Phi_ref(ix,iy,pF) = rho*Rs*temperature
+                  end if
                end if
                mask(ix,iy,:) = C_inv*mask(ix,iy,:)
        end do
@@ -274,12 +295,9 @@ implicit none
   width=R_domain
   l_pip = plenum%length_pip
   geo_case = plenum%name
-  sp1 = 0.5_rk*0.3_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
-  sp2 = 0.5_rk*0.3206_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
-  sp3 = 0.5_rk*0.634_rk/0.8_rk*l_pip+plenum%wall_thickness+geom_offset!*2.0_rk+wall_thickness
-  !-------CONSTANT RADIUS PIPE CASE----------!
-  
-  
+  sp1 = 0.5_rk*0.3_rk+wall_thickness!/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
+  sp2 = 0.5_rk*0.3206_rk+wall_thickness!/0.8_rk*l_pip+plenum%wall_thickness+geom_offset
+  sp3 = 0.5_rk*0.634_rk+wall_thickness!/0.8_rk*l_pip+plenum%wall_thickness+geom_offset!*2.0_rk+wall_thickness
   
 !-----------------------------------------------------------!
 !-----------------____________________----------------------!
@@ -287,15 +305,8 @@ implicit none
 !----------------|____________________|---------------------!
   select case(geo_case)
   case('const')
-  if (x<= plenum%length_pip) then
-         !mask=mask+smoothstep(R_domain-funnel%wall_thickness-r,h)
-        r0_pip=0.5_rk*plenum%diameter_pip
-       mask=hard_bump(r,r0_pip,width)
-  elseif (x >= plenum%length_pip) then
-
-       mask=soft_bump(r,r0_ple,width,h)
-
-  endif
+  r0_pip=0.5_rk*plenum%diameter_pip
+  mask=hard_bump(r,r0_pip,width)
 
 
 !  draw_plenum_walls=mask
@@ -307,21 +318,24 @@ implicit none
 !----------------|____________|-----------------------------!
   case('sfb_pdc')
   if (x<=sp1)then 
-     r0_pip = 0.0403_rk*L_scaling
+     r0_pip = 0.0403_rk
      mask=hard_bump(r,r0_pip,width)
+     
   elseif (x>sp1 .and. x<=sp2) then
-     r0_pip = 0.0403_rk*L_scaling - (x-sp1)/(sp1-sp2)*(0.02_rk-0.0403_rk)*L_scaling
+     r0_pip = 0.0403_rk - (x-sp1)/(sp1-sp2)*(0.02_rk-0.0403_rk)
      mask=hard_bump(r,r0_pip,width)!,h)(h needed for soft_bump
+     
   elseif(x>sp2 .and. x<=sp3) then
-     r0_pip = 0.02_rk*L_scaling + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)*L_scaling
+     r0_pip = 0.02_rk + (x-sp2)/(sp2-sp3)*(0.02_rk-0.0403_rk)
      mask=hard_bump(r,r0_pip,width)!,h)
+     
   elseif(x>sp3 .and. x <=l_pip) then
-     r0_pip = 0.0403_rk*L_scaling
+     r0_pip = 0.0403_rk
      mask=hard_bump(r,r0_pip,width)!,h)
   end if
   
   case default
-  call abort(8546533,"ERROR: No geometry for the plenum. "//plenum%name)
+  call abort(8546533,"ERROR: DONT YOU FORGET ABOUT CHOSING A GEOMETRY. "//plenum%name)
   
   
   end select
@@ -487,5 +501,45 @@ mask2 = 0.0_rk
 end function
 
 
-
+function draw_double_sponge(x,y,r,plenum,h,x0,xEnd)
+implicit none
+!--------------------------------------------------------------------------!
+real(kind=rk), intent(in)   ::x,y,r,h,x0,xEnd
+type(type_plenum),intent(in)::plenum
+real(kind=rk)               ::draw_double_sponge
+real(kind=rk)               ::mask
+real(kind=rk)               ::x_hi1,x_hi2
+real(kind=rk)               ::x3rd
+real(kind=rk)               ::mu_tmp, a, b,pi
+!--------------------------------------------------------------------------!
+pi = 3.14159265359_rk
+x3rd = (xEnd-x0)/3.0_rk
+x_hi1 = x0+x3rd
+x_hi2 = x0+2.0_rk*x3rd
+       !RAMP UP
+       if (x>x0 .and. x<x_hi1) then
+          a = 2.0_rk*pi/(x_hi1-x0);
+          !write(*,*) pi
+          b = -a*x0;
+          mu_tmp = a*x+b
+          !write(*,*) mu_tmp
+          mask = tanh(mu_tmp)
+          !write(*,*) mask
+        endif
+        ! CONSTANT MIDDLE PART
+        if (x>x_hi1 .and. x<x_hi2) then
+           mask = 1.0_rk
+           !write(*,*) mask
+        endif
+        ! RAMP DOWN
+        if (x>x_hi2 .and. x<xEnd) then
+            a = 2.0_rk*pi/(x_hi2-xEnd)
+            b = -a*xEnd
+            mu_tmp = a*x+b
+            !write(*,*) mu_tmp
+            mask = tanh(mu_tmp)
+            !write(*,*) mask
+        endif
+draw_double_sponge = mask
+end function
 

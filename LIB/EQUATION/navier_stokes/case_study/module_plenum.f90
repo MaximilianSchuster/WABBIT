@@ -147,7 +147,7 @@ contains
       call read_param_mpi(FILE, 'plenum', 'u_wall',plenum%v_wall, 0.0_rk)
       call read_param_mpi(FILE, 'plenum', 'wall_thickness',plenum%wall_thickness, 0.00625_rk)
       call read_param_mpi(FILE, 'plenum', 'diameter_pip',plenum%diameter_pip, 0.1_rk)
-      call read_param_mpi(FILE, 'plenum', 'length_pip',plenum%length_pip, 0.4_rk)
+      call read_param_mpi(FILE, 'plenum', 'length_pip',plenum%length_pip, 0.8_rk)
       
       
       ! BLADE VARIABLES AND PARAMETERS
@@ -216,7 +216,7 @@ subroutine  draw_plenum(x0, dx, Bs, g, mask, mask_is_colored)
 
   ! mask coloring is optional, which is mainly used for plotting the different parts
   ! of the plenum in paraview
-  if (is_colored) then
+  if (.false.) then
     mask(:,:,:)= real(mask_color(:,:,:),kind=rk)
   else
     ! if the mask is not colored we use the mask of the solid obstacles
