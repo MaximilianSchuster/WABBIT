@@ -120,7 +120,7 @@ PRAGMAS = -WF,-DBLOCKINGSENDRECV
 endif
 
 # add the PRAGMAS to FFLAGS: (for all compilers)
-FFLAGS += $(PPFLAG) $(PRAGMAS)
+FFLAGS += $(PPFLAG) $(PRAGMAS) -fPIC
 
 
 # Both programs are compiled by default.
