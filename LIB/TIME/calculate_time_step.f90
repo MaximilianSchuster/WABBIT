@@ -40,7 +40,6 @@ subroutine calculate_time_step( params, time, hvy_block, hvy_active, hvy_n, lgt_
           ! computed for each block, then the minimum is used.
           call GET_DT_BLOCK_meta( params%physics_type, time, hvy_block(:,:,:,:,hvy_active(k)), &
               params%Bs,params%n_ghosts, xx0, ddx, dt_tmp)
-
           dt = min( dt, dt_tmp )
       end do
 

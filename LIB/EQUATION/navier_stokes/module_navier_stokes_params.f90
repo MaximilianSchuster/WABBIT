@@ -283,7 +283,7 @@ contains
       end if
       call read_param_mpi(FILE, section, 'inicond'      , params_ns%inicond, "no" )
       call read_param_mpi(FILE, section, 'inicond_width',width, params_ns%domain_size(1)*0.1_rk )
-      call read_param_mpi(FILE, section, 'initial_pressure' , p_init, p_init )
+      call read_param_mpi(FILE, section, 'initial_pressure' , p_init, p_init)
       call read_param_mpi(FILE, section, 'initial_velocity' , u_init(1:params_ns%dim), u_init(1:params_ns%dim) )
       call read_param_mpi(FILE, section, 'initial_temperature', T_init, T_init )
       call read_param_mpi(FILE, section, 'initial_density', rho_init, rho_init )
