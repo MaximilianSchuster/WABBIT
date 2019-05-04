@@ -44,8 +44,8 @@ module module_plenum
 ! identifyers of the different parts of the plenum
 ! they are used in the array mask_color
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  !integer(kind=2),parameter :: color_capillary  =6
-  !integer(kind=2),parameter :: color_outlet     =5
+  integer(kind=2),parameter :: color_inlet            =6
+  integer(kind=2),parameter :: color_blades           =5
   integer(kind=2),parameter :: color_rad_sponge       =4
   integer(kind=2),parameter :: color_walls            =3
   integer(kind=2),parameter :: color_west_sponge      =2
@@ -54,22 +54,25 @@ module module_plenum
 
 
   type :: type_plenum
-      character(len=80)   :: name  
+      character(len=80)   :: name,blade_position  
       real(kind=rk)       :: diameter_ple          ! Plenum diameter
       real(kind=rk)       :: length_ple 
+      real(kind=rk), dimension(9)   :: lower_coefficients,upper_coefficients
       real(kind=rk)       :: sponge_density
       real(kind=rk)       :: sponge_pressure
       real(kind=rk)       :: temperature 
       real(kind=rk)       :: wall_thickness       
       real(kind=rk)       :: diameter_pip                                    
-      real(kind=rk)       :: length_pip 
+      real(kind=rk)       :: length_pip, boxwidth,boxheight
+      real(kind=rk)       ::inlet_velocity,inlet_pressure, inlet_density
       
       !BLADE VARIABLES
       real(kind=rk)       :: L_blade
       real(kind=rk)       :: AoA
       integer(kind=ik)    :: n_blades
+      integer(kind=ik)    :: set_inibox
       real(kind=rk)       :: gap_blade
-      real(kind=rk)       :: t_blade
+      real(kind=rk)       :: t_blade,inibox_length
 
   end type type_plenum
 
@@ -99,6 +102,7 @@ contains
       ! READ IN geometry
       ! ----------------
       call read_param_mpi(FILE, 'plenum', 'name', plenum%name,'')
+      call read_param_mpi(FILE, 'plenum', 'blade_position', plenum%blade_position,'')
       call read_param_mpi(FILE, 'plenum', 'diameter_ple'  , plenum%diameter_ple, 0.1_rk)
       call read_param_mpi(FILE, 'plenum', 'length_ple'  , plenum%length_ple, 0.156_rk)
       call read_param_mpi(FILE, 'plenum', 'sponge_density', plenum%sponge_density,1.22_rk)
@@ -109,14 +113,24 @@ contains
       call read_param_mpi(FILE, 'plenum', 'length_pip',plenum%length_pip, 0.8_rk)
 
       
+      
+      
+      call read_param_mpi(FILE, 'plenum', 'inlet_density', plenum%inlet_density,1.22_rk)
+      call read_param_mpi(FILE, 'plenum', 'inlet_pressure', plenum%inlet_pressure, 101000.00_rk) 
+      call read_param_mpi(FILE, 'plenum', 'inlet_velocity', plenum%inlet_velocity, 0.00_rk) 
       ! BLADE VARIABLES AND PARAMETERS
       call read_param_mpi(FILE, 'plenum', 'L_blade'  , plenum%L_blade, 0.1_rk)
       call read_param_mpi(FILE, 'plenum', 'AoA'  , plenum%AoA, 0.0_rk)
       call read_param_mpi(FILE, 'plenum', 'n_blades'  , plenum%n_blades, 1)
+      call read_param_mpi(FILE, 'plenum', 'set_inibox'  , plenum%set_inibox, 0)
+      call read_param_mpi(FILE, 'plenum', 'inibox_length'  , plenum%inibox_length, 0.1_rk)
       call read_param_mpi(FILE, 'plenum', 'gap_blade', plenum%gap_blade, 0.05_rk)
       call read_param_mpi(FILE, 'plenum', 't_blade', plenum%t_blade, 0.02_rk)
-        
-                                                          
+      call read_param_mpi(FILE, 'plenum', 'boxheight'  , plenum%boxheight, 0.05_rk)
+      call read_param_mpi(FILE, 'plenum', 'boxwidth'  , plenum%boxwidth, 0.1_rk)
+      ! POLYNOMIAL COEFFICEINTS)  
+      call read_param_mpi(FILE, 'plenum', 'lower_coefficients'  , plenum%lower_coefficients(1:9))               
+      call read_param_mpi(FILE, 'plenum', 'upper_coefficients'  , plenum%upper_coefficients(1:9))  
       ! these parameters are global in plenum module!
       Rs         =params%Rs
       gamma_     =params%gamma_
@@ -167,7 +181,7 @@ subroutine  draw_plenum(x0, dx, Bs, g, mask, mask_is_colored)
 
   ! mask coloring is optional, which is mainly used for plotting the different parts
   ! of the plenum in paraview
-  if (is_colored) then
+  if (.false.) then
     mask(:,:,:)= real(mask_color(:,:,:),kind=rk)
   else
     ! if the mask is not colored we use the mask of the solid obstacles
@@ -199,7 +213,13 @@ end subroutine draw_plenum
        rho_init  =params_ns%initial_density
        u_init    =params_ns%initial_velocity
        T_init    =params_ns%initial_temp
-
+       ! FU HARDCODE
+       if (x< 0.01 .and. abs(r)<0.015) then
+       p_init = 330000.0_rk
+       rho_init=2.71_rk
+       u_init = 323.0_rk
+       endif
+       ! FU HARDCODE
        allocate(mask(size(u,1), size(u,2), size(u,3)))
       ! set velocity field u(x)=1 for x in mask
       ! u(x)=(1-mask(x))*u0 to make sure that flow is zero at mask values

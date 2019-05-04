@@ -41,7 +41,7 @@ module module_navier_stokes
   !**********************************************************************************************
   PUBLIC :: READ_PARAMETERS_NSTOKES, PREPARE_SAVE_DATA_NSTOKES, RHS_NSTOKES, GET_DT_BLOCK_NSTOKES, &
             INICOND_NSTOKES, FIELD_NAMES_NStokes,&
-            STATISTICS_NStokes,FILTER_NSTOKES
+            STATISTICS_NStokes,FILTER_NSTOKES,CREATE_MASK_NS
   !**********************************************************************************************
   ! parameters for this module. they should not be seen outside this physics module
   ! in the rest of the code. WABBIT does not need to know them.
@@ -148,7 +148,34 @@ contains
 
 
 
+subroutine CREATE_MASK_NS(x0,dx,Bs,g,mask)
+    implicit none
 
+    ! grid
+    integer(kind=ik), intent(in) :: Bs(1:3)
+    !type(type_params_ns),intent(inout)   :: params    !< NStokes Params structure
+    integer(kind=ik), intent(in) :: g
+    !> mask term for every grid point of this block
+    real(kind=rk), dimension(:,:,:), intent(inout) :: mask
+    real(kind=rk), dimension(:,:,:),allocatable,save     ::randoms
+    !> spacing and origin of block
+    real(kind=rk), intent(in) :: x0(1:3), dx(1:3)
+    integer(kind=ik) :: ix,iy
+    if(.not. allocated(randoms)) then
+        allocate(randoms(Bs(1)+2*g,Bs(2)+2*g,1))
+        call random_number(randoms)
+    endif
+    call get_mask(params_ns, x0, dx, Bs, g , mask)
+    do ix = g+1, Bs(1)+g
+      do iy = g+1, Bs(2)+g
+      if (mask(iy,iy,1) <1.0_rk) then
+	mask(ix,iy,1) = mod(ix,2)*1e7_rk!sin(100*2*pi*(x0(1)+ix*dx(1))/params_ns%domain_size(1))*1e7_rk
+      else
+	mask(ix,iy,1) = 1
+      end if
+      end do
+    end do
+end subroutine
 
 
 

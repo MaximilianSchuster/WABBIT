@@ -39,9 +39,10 @@ subroutine CREATE_MASK_meta( physics, time, x0, dx, Bs, g, mask, mask_color, us,
     character(len=*), intent(in) :: physics
     ! grid
     integer(kind=ik), intent(in) :: Bs(1:3)
+    !type(type_params_ns),intent(inout)   :: params    !< NStokes Params structure
     integer(kind=ik), intent(in) :: g
     !> mask term for every grid point of this block
-    real(kind=rk), dimension(:,:,:), intent(inout) :: mask
+    real(kind=rk), dimension(:,:,:),intent(inout) :: mask
     integer(kind=2), dimension(:,:,:), intent(inout) :: mask_color
     real(kind=rk), dimension(:,:,:,:), intent(inout) :: us
     real(kind=rk), dimension(:,:,:,:), optional, intent(in) :: grid_qty
@@ -73,10 +74,15 @@ subroutine CREATE_MASK_meta( physics, time, x0, dx, Bs, g, mask, mask_color, us,
         us = 0.00_rk
 
     case ('navier_stokes')
+    
+    !get_mask(params,x0, dx, Bs, g, mask, mask_is_colored)
         ! not implemented yet
         mask = 0.00_rk
         mask_color = 0
         us = 0.00_rk
+        call CREATE_MASK_NS(x0,dx,Bs,g,mask)
+
+        
 
     case default
         call abort(1212,'unknown physics...say whaaat?')
